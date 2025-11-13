@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>S7 Departures – Mehrower Allee → Potsdam</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+    }
+    h1 {
+      font-size: 2.2em;
+      margin: 20px 0 10px 0;
+    }
+    #time {
+      color: #ccc;
+      margin-bottom: 10px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 700px;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #333;
+      font-size: 1.2em;
+    }
+    th {
+      color: #ff0;
+      border-bottom: 2px solid #666;
+    }
+    .refreshing {
+      color: #888;
+      font-size: 0.9em;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>S7 → Potsdam Hbf</h1>
+  <div id="time"></div>
+  <table id="departures">
+    <tr><th>Time</th><th>Destination</th><th>In</th></tr>
+  </table>
+  <div class="refreshing" id="status">Loading...</div>
+
+  <script>
+    const API_URL = "https://v6.vbb.transport.rest/stops/900190004/departures?linesOfStops=false&duration=60";
+    // Mehrower Allee: 900190004
+    // Potsdam Hbf: direction filter applied manually
+
+    async function loadDepartures() {
+      document.getElementById('status').textContent = 'Updating...';
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        // Filter only S7 trains going toward Potsdam
+        const s7Departures = data.filter(d =>
+          d.line?.name === "S7" &&
+          d.direction?.toLowerCase().includes("potsdam")
+        );
+
+        const table = document.getElementById('departures');
+        table.innerHTML = "<tr><th>Time</th><th>Destination</th><th>In</th></tr>";
+
+        if (s7Departures.length === 0) {
+          table.innerHTML += "<tr><td colspan='3'>No upcoming S7 trains.</td></tr>";
+        } else {
+          s7Departures.slice(0, 6).forEach(dep => {
+            const when = new Date(dep.when);
+            const minutes = Math.round((when - new Date()) / 60000);
+            const minText = minutes <= 0 ? "Now" : `${minutes} min`;
+            table.innerHTML += `
+              <tr>
+                <td>${when.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</td>
+                <td>${dep.direction}</td>
+                <td>${minText}</td>
+              </tr>`;
+          });
+        }
+      } catch (err) {
+        document.getElementById('departures').innerHTML =
+          "<tr><td colspan='3'>Error loading data</td></tr>";
+        console.error(err);
+      }
+      document.getElementById('status').textContent =
+        'Last updated: ' + new Date().toLocaleTimeString();
+      document.getElementById('time').textContent =
+        new Date().toLocaleString([], {weekday: 'long', hour: '2-digit', minute: '2-digit'});
+    }
+
+    loadDepartures();
+    setInterval(loadDepartures, 60000);
+  </script>
+</body>
+</html>
